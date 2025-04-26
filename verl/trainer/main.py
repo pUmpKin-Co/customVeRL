@@ -33,7 +33,6 @@ class Runner:
 
     def run(self, config: PPOConfig):
         # print config
-        breakpoint()
         print(json.dumps(config.to_dict(), indent=2))
 
         # instantiate tokenizer
@@ -64,13 +63,19 @@ class Runner:
             Role.Critic: global_pool_id,
             Role.RefPolicy: global_pool_id,
         }
-        resource_pool_manager = ResourcePoolManager(resource_pool_spec=resource_pool_spec, mapping=mapping)
+        resource_pool_manager = ResourcePoolManager(
+            resource_pool_spec=resource_pool_spec, mapping=mapping
+        )
 
-        RemoteRewardManager = ray.remote(FunctionRewardManager).options(num_cpus=config.worker.reward.num_cpus)
+        RemoteRewardManager = ray.remote(FunctionRewardManager).options(
+            num_cpus=config.worker.reward.num_cpus
+        )
         reward_fn = RemoteRewardManager.remote(config.worker.reward, tokenizer)
         val_reward_fn = RemoteRewardManager.remote(config.worker.reward, tokenizer)
 
-        train_dataloader, val_dataloader = create_dataloader(config.data, tokenizer, processor)
+        train_dataloader, val_dataloader = create_dataloader(
+            config.data, tokenizer, processor
+        )
 
         trainer = RayPPOTrainer(
             config=config,

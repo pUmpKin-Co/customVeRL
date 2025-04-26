@@ -8,7 +8,7 @@ data:
   max_response_length: 2048
   rollout_batch_size: 512  # per device global batch size
   val_batch_size: 1024
-  format_prompt: /home/aiscuser/EasyR1/examples/format_prompt/math_format.jinja
+  format_prompt: /home/aiscuser/customVeRL/examples/format_prompt/math_format.jinja
   shuffle: true
   seed: 1
   max_pixels: 4194304
@@ -71,11 +71,11 @@ worker:
 
   reward:
     reward_type: function
-    reward_function: /home/aiscuser/EasyR1/examples/reward_function/math.py:compute_score
+    reward_function: /home/aiscuser/customVeRL/examples/reward_function/math.py:compute_score
 
 trainer:
   total_episodes: 15
-  logger: ["console"]
+  logger: ["console", "wandb"]
   project_name: easy_r1
   experiment_name: qwen2_5_7b_math_grpo
   n_gpus_per_node: 8

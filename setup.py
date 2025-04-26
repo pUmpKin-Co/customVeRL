@@ -29,7 +29,11 @@ def get_version() -> str:
 def get_requires() -> list[str]:
     with open("requirements.txt", encoding="utf-8") as f:
         file_content = f.read()
-        lines = [line.strip() for line in file_content.strip().split("\n") if not line.startswith("#")]
+        lines = [
+            line.strip()
+            for line in file_content.strip().split("\n")
+            if not line.startswith("#")
+        ]
         return lines
 
 
@@ -43,7 +47,6 @@ def main():
         name="verl",
         version=get_version(),
         description="An Efficient, Scalable, Multi-Modality RL Training Framework based on veRL",
-        long_description=open("README.md", encoding="utf-8").read(),
         long_description_content_type="text/markdown",
         author="verl",
         author_email="zhangchi.usc1992@bytedance.com, gmsheng@connect.hku.hk, hiyouga@buaa.edu.cn",
