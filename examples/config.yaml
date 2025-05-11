@@ -74,7 +74,7 @@ worker:
     reward_function: /home/aiscuser/customVeRL/examples/reward_function/model_based_reward.py:compute_score
     reward_function_kwargs:
       reward_model_name: "microsoft/deberta-v3-base"
-      reward_model_device_id: "1"
+      reward_server_url: "http://localhost:8000/v1/rewards"
       format_weight: 0.3
 
 trainer:

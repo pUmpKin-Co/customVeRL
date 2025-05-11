@@ -1,15 +1,10 @@
 import re
-import torch
-from typing import Dict, Optional, Any
-from transformers import AutoProcessor, Qwen2VLConfig
-from customVeRL.examples.reward_function.qwen_reward import Qwen2Reward
-from qwen_vl_utils import process_vision_info
-from typing import List
+from typing import Dict, List
 from PIL import Image
 import numpy as np
-
-_model = None
-_tokenizer = None
+import requests
+import base64
+from io import BytesIO
 
 
 BOX_START = "<|box_start|>"
@@ -56,42 +51,14 @@ def calculate_iou(box1, box2):
     return iou
 
 
-def load_scoring_model(
-    model_name: str = "microsoft/deberta-v3-base",
-    reward_model_device_id: str = "0",
-) -> None:
-    global _model, _tokenizer
-
-    if _model is None or _tokenizer is None:
-        try:
-            _tokenizer = AutoProcessor.from_pretrained(model_name)
-            _tokenizer.tokenizer.padding_side = "right"
-            model_config = Qwen2VLConfig.from_pretrained(model_name)
-            model_config.ranked_candidate_num = 1
-            model_config.pad_token_id = _tokenizer.tokenizer.pad_token_id
-            _model = Qwen2Reward.from_pretrained(
-                model_name,
-                config=model_config,
-                torch_dtype=torch.bfloat16,
-                attn_implementation="flash_attention_2",
-                device_map=f"cuda:{reward_model_device_id}",
-            )
-            _model.eval()
-            for param in _model.parameters():
-                param.requires_grad = False
-            print(f"Successfully loaded model: {model_name}")
-        except Exception as e:
-            raise RuntimeError(f"Failed to load model {model_name}: {e}")
-
-
 def get_model_score(
-    text1: str, text2: str, problem: str, images: List[Image.Image]
+    text1: str,
+    text2: str,
+    problem: str,
+    images: List[Image.Image],
+    reward_server_url: str,
+    reward_model_name: str,
 ) -> float:
-    global _model, _tokenizer
-
-    if _model is None or _tokenizer is None:
-        raise RuntimeError("Model not loaded. Call load_scoring_model first.")
-
     predict_match = re.search(r"<answer>(.*?)</answer>", text1)
     predict_answer = predict_match.group(1).strip() if predict_match else text1.strip()
     ground_truth = text2
@@ -102,49 +69,38 @@ def get_model_score(
     else:
         image = images
 
-    def build_messages(question: str, answer: str) -> List[Dict[str, Any]]:
-        return [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": question},
-                    {"type": "image", "image": image},
-                ],
-            },
-            {"role": "assistant", "content": answer},
-        ]
+    base64_image_data = base64.b64encode(image).decode("utf-8")
+    payload = {
+        "model": reward_model_name,
+        "problem_description": problem,
+        "completion1": predict_answer,
+        "completion2": ground_truth,
+    }
 
-    predict_message = build_messages(problem, predict_answer)
-    ground_truth_message = build_messages(problem, ground_truth)
+    if base64_image_data:
+        payload["image_data"] = f"data:image/png;base64,{base64_image_data}"
 
-    messages = [predict_message, ground_truth_message]
-    texts = [
-        _tokenizer.apply_chat_template(msg, tokenize=False, add_generation_prompt=False)
-        for msg in messages
-    ]
-    image_inputs, video_inputs = process_vision_info(messages)
-    inputs = _tokenizer(
-        text=texts,
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    )
-    inputs = inputs.to(_model.device)
+    success_flag = False
 
-    with torch.inference_mode() and torch.autocast(
-        device_type="cuda", dtype=torch.bfloat16
-    ):
-        outputs = _model(**inputs, return_dict=True, return_loss=False)
+    for _ in range(3):
+        # try 3 times
+        response = requests.post(reward_server_url, json=payload)
+        status_code = response.status_code
+        if status_code == 200:
+            success_flag = True
+            break
 
-    score = outputs.values.flatten().to(torch.float32)
-    predict_score, ground_truth_score = score
-    predict_score = predict_score.item()
-    ground_truth_score = ground_truth_score.item()
+    if success_flag:
+        response_json = response.json()
+        scores = response_json["scores"]
+        predict_score = scores[0]["score"]
+        ground_truth_score = scores[1]["score"]
 
-    if predict_score > ground_truth_score:
-        diff = predict_score - ground_truth_score
-        reward = 1.0 - np.exp(-diff * 0.2)
+        if predict_score > ground_truth_score:
+            diff = predict_score - ground_truth_score
+            reward = 1.0 - np.exp(-diff * 0.2)
+        else:
+            reward = 0.0
     else:
         reward = 0
 
@@ -223,12 +179,9 @@ def compute_score(
     images: List[Image.Image] = [],
     open_ended: bool = False,
     reward_model_name: str = "microsoft/deberta-v3-base",
-    reward_model_device_id: str = "0",
+    reward_server_url: str = "http://localhost:8000/v1/rewards",
     format_weight: float = 0.3,
 ) -> Dict[str, float]:
-    if _model is None:
-        load_scoring_model(reward_model_name, reward_model_device_id)
-
     format_score = format_reward(predict_str)
     if format_score == 0.0:
         return {"overall": 0.0, "format": format_score, "accuracy": 0.0}
@@ -236,7 +189,14 @@ def compute_score(
         if not open_ended:
             accuracy_score = accuracy_reward(predict_str, ground_truth)
         else:
-            accuracy_score = get_model_score(predict_str, ground_truth, problem, images)
+            accuracy_score = get_model_score(
+                predict_str,
+                ground_truth,
+                problem,
+                images,
+                reward_server_url,
+                reward_model_name,
+            )
 
     # The model score itself serves as a continuous reward
     overall_score = format_weight * format_score + (1 - format_weight) * accuracy_score
