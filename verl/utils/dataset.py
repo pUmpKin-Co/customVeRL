@@ -180,9 +180,12 @@ class RLHFDataset(Dataset, ImageProcessMixin):
             prompt = self.processor.apply_chat_template(
                 messages, add_generation_prompt=True, tokenize=False
             )
-            images = [
-                self.process_image(image) for image in example.pop(self.image_key)
-            ]
+
+            images = example.get(self.image_key)
+            if not isinstance(images, list):
+                images = [images]
+
+            images = [self.process_image(image) for image in images]
             model_inputs = self.processor(
                 images, [prompt], add_special_tokens=False, return_tensors="pt"
             )
