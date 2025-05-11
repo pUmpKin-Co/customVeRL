@@ -4,6 +4,9 @@ from typing import Dict, Optional, Any
 from transformers import AutoProcessor, Qwen2VLConfig
 from customVeRL.examples.reward_function.qwen_reward import Qwen2Reward
 from qwen_vl_utils import process_vision_info
+from typing import List
+from PIL import Image
+import numpy as np
 
 _model = None
 _tokenizer = None

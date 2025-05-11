@@ -4,6 +4,7 @@ MODEL_PATH=Qwen/Qwen2-VL-2B-Instruct  # replace it with your local file path
 REWARD_MODEL_PATH=PumpkinCat/ScoreRS
 REWARD_MODEL_DEVICE_ID=1
 FORMAT_WEIGHT=0.3
+TENSOR_PARALLEL_SIZE=1
 
 python3 -m customVeRL.verl.trainer.main \
     config=/home/aiscuser/customVeRL/examples/config.yaml \
@@ -18,4 +19,5 @@ python3 -m customVeRL.verl.trainer.main \
     data.max_response_length=4096 \
     worker.reward.reward_function_kwargs.reward_model_name=${REWARD_MODEL_PATH} \
     worker.reward.reward_function_kwargs.reward_model_device_id=${REWARD_MODEL_DEVICE_ID} \
-    worker.reward.reward_function_kwargs.format_weight=${FORMAT_WEIGHT}
+    worker.reward.reward_function_kwargs.format_weight=${FORMAT_WEIGHT} \
+    worker.rollout.tensor_parallel_size=${TENSOR_PARALLEL_SIZE}
