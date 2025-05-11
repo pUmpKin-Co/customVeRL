@@ -91,14 +91,18 @@ class FunctionRewardManager:
             if "open_ended" in data_item.non_tensor_batch:
                 problem = data_item.non_tensor_batch["problem"]
                 open_ended = data_item.non_tensor_batch["open_ended"]
-                images = data_item.non_tensor_batch["images"]
+                images = data_item.non_tensor_batch["image"]
 
             if (
                 "open_ended" in self.reward_fn_params
                 and "open_ended" in data_item.non_tensor_batch
             ):
                 score = self.reward_fn(
-                    response_str, ground_truth, open_ended, problem, images
+                    response_str,
+                    ground_truth,
+                    open_ended=open_ended,
+                    problem=problem,
+                    images=images,
                 )
             else:
                 score = self.reward_fn(response_str, ground_truth)
