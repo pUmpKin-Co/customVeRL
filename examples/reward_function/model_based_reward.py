@@ -22,6 +22,24 @@ BRACKET_BOX_PATTERN = re.compile(
 )
 
 
+def intersection_geo(box1, box2):
+    x_min1, y_min1, x_max1, y_max1 = box1
+    x_min2, y_min2, x_max2, y_max2 = box2
+
+    x_min_int = max(x_min1, x_min2)
+    y_min_int = max(y_min1, y_min2)
+    x_max_int = min(x_max1, x_max2)
+    y_max_int = min(y_max1, y_max2)
+
+    return x_min_int, y_min_int, x_max_int, y_max_int
+
+
+def calculate_area(box):
+    x_min1, y_min1, x_max1, y_max1 = box
+    area_box1 = (x_max1 - x_min1) * (y_max1 - y_min1)
+    return area_box1
+
+
 def calculate_iou(box1, box2):
     x_min1, y_min1, x_max1, y_max1 = box1
     x_min2, y_min2, x_max2, y_max2 = box2
@@ -51,7 +69,7 @@ def load_scoring_model(
             model_config = Qwen2VLConfig.from_pretrained(model_name)
             model_config.ranked_candidate_num = 1
             model_config.pad_token_id = _tokenizer.tokenizer.pad_token_id
-            _model = Qwen2Reward(
+            _model = Qwen2Reward.from_pretrained(
                 model_name,
                 config=model_config,
                 torch_dtype=torch.bfloat16,

@@ -77,7 +77,6 @@ class FunctionRewardManager:
     ) -> Tuple[torch.Tensor, Dict[str, List[float]]]:
         reward_tensor = torch.zeros_like(data.batch["responses"], dtype=torch.float32)
         reward_metrics = defaultdict(list)
-        breakpoint()
         for i in range(len(data)):
             data_item = data[i]  # DataProtoItem
             response_ids = data_item.batch["responses"]
@@ -94,7 +93,10 @@ class FunctionRewardManager:
                 open_ended = data_item.non_tensor_batch["open_ended"]
                 images = data_item.non_tensor_batch["images"]
 
-            if "open_ended" in self.reward_fn_params:
+            if (
+                "open_ended" in self.reward_fn_params
+                and "open_ended" in data_item.non_tensor_batch
+            ):
                 score = self.reward_fn(
                     response_str, ground_truth, open_ended, problem, images
                 )
