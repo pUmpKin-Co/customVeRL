@@ -1,7 +1,8 @@
+import re
 import torch
 from typing import Dict, Optional, Any
 from transformers import AutoProcessor, Qwen2VLConfig
-from .qwen_reward import Qwen2Reward
+from customVeRL.examples.reward_function.qwen_reward import Qwen2Reward
 from qwen_vl_utils import process_vision_info
 
 _model = None
@@ -189,7 +190,6 @@ def compute_score(
     reward_model_name: str = "microsoft/deberta-v3-base",
     reward_model_device_id: str = "0",
     format_weight: float = 0.3,
-    threshold: float = 0.5,
 ) -> Dict[str, float]:
     if _model is None:
         load_scoring_model(reward_model_name, reward_model_device_id)
@@ -201,10 +201,12 @@ def compute_score(
         if not open_ended:
             accuracy_score = accuracy_reward(predict_str, ground_truth)
         else:
-            score = get_model_score(predict_str, ground_truth, problem, images)
-
-    # Binary accuracy based on threshold
-    accuracy = 1.0 if score >= threshold else 0.0
+            accuracy_score = get_model_score(predict_str, ground_truth, problem, images)
 
     # The model score itself serves as a continuous reward
-    return {"overall": score, "model_score": score, "accuracy": accuracy}
+    overall_score = format_weight * format_score + (1 - format_weight) * accuracy_score
+    return {
+        "overall": overall_score,
+        "format_score": format_score,
+        "accuracy_score": accuracy_score,
+    }
