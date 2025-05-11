@@ -22,6 +22,22 @@ BRACKET_BOX_PATTERN = re.compile(
 )
 
 
+def calculate_iou(box1, box2):
+    x_min1, y_min1, x_max1, y_max1 = box1
+    x_min2, y_min2, x_max2, y_max2 = box2
+    x_min_int, y_min_int, x_max_int, y_max_int = intersection_geo(box1, box2)
+
+    if x_min_int >= x_max_int or y_min_int >= y_max_int:
+        return 0.0
+
+    area_int = (x_max_int - x_min_int) * (y_max_int - y_min_int)
+
+    area_box1 = (x_max1 - x_min1) * (y_max1 - y_min1)
+    area_box2 = (x_max2 - x_min2) * (y_max2 - y_min2)
+    iou = area_int / (area_box1 + area_box2 - area_int)
+    return iou
+
+
 def load_scoring_model(
     model_name: str = "microsoft/deberta-v3-base",
     reward_model_device_id: str = "0",
@@ -58,10 +74,8 @@ def get_model_score(
     if _model is None or _tokenizer is None:
         raise RuntimeError("Model not loaded. Call load_scoring_model first.")
 
-    predict_match = re.search(r"<answer>(.*?)</answer>", predict_str)
-    predict_answer = (
-        predict_match.group(1).strip() if predict_match else predict_str.strip()
-    )
+    predict_match = re.search(r"<answer>(.*?)</answer>", text1)
+    predict_answer = predict_match.group(1).strip() if predict_match else text1.strip()
     ground_truth = text2
 
     problem = problem.replace("<image>", "")
@@ -91,7 +105,7 @@ def get_model_score(
         for msg in messages
     ]
     image_inputs, video_inputs = process_vision_info(messages)
-    inputs = processor(
+    inputs = _tokenizer(
         text=texts,
         images=image_inputs,
         videos=video_inputs,
