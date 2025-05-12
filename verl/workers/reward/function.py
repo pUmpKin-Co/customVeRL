@@ -88,19 +88,19 @@ class FunctionRewardManager:
                 valid_response_ids, skip_special_tokens=self.config.skip_special_tokens
             )
             ground_truth = data_item.non_tensor_batch["ground_truth"]
-            if "open_ended" in data_item.non_tensor_batch:
+            if "type" in data_item.non_tensor_batch:
                 problem = data_item.non_tensor_batch["problem"]
-                open_ended = data_item.non_tensor_batch["open_ended"]
+                reward_type = data_item.non_tensor_batch["type"]
                 images = data_item.non_tensor_batch["image"]
 
             if (
-                "open_ended" in self.reward_fn_params
-                and "open_ended" in data_item.non_tensor_batch
+                "reward_type" in self.reward_fn_params
+                and "type" in data_item.non_tensor_batch
             ):
                 score = self.reward_fn(
                     response_str,
                     ground_truth,
-                    open_ended=open_ended,
+                    reward_type=reward_type,
                     problem=problem,
                     images=images,
                 )
