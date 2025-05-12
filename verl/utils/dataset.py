@@ -150,7 +150,7 @@ class RLHFDataset(Dataset, ImageProcessMixin):
         prompt_str: str = example[self.prompt_key]
         if (
             self.image_key in example
-            and example["image_key"] is not None
+            and example[self.image_key] is not None
             and "<image>" not in prompt_str
         ):
             prompt_str = "<image>" + prompt_str

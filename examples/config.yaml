@@ -11,7 +11,7 @@ data:
   format_prompt: /home/aiscuser/customVeRL/examples/format_prompt/r1v_format.jinja
   shuffle: true
   seed: 1
-  max_pixels: 4194304
+  max_pixels: 1048576
   min_pixels: 262144
   filter_overlong_prompts: true
 
