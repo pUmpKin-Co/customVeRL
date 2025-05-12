@@ -148,6 +148,12 @@ class RLHFDataset(Dataset, ImageProcessMixin):
 
     def _build_messages(self, example: Dict[str, Any]) -> List[Dict[str, Any]]:
         prompt_str: str = example[self.prompt_key]
+        if (
+            self.image_key in example
+            and example["image_key"] is not None
+            and "<image>" not in prompt_str
+        ):
+            prompt_str = "<image>" + prompt_str
         if self.format_prompt and self.is_jinja_template:
             format_prompt = Template(self.format_prompt.strip())
             prompt_str = format_prompt.render(content=prompt_str)
