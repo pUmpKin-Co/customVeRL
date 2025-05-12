@@ -5,11 +5,14 @@ REWARD_MODEL_PATH=PumpkinCat/ScoreRS
 REWARD_MODEL_SERVER_URL=http://localhost:8000/v1/rewards
 FORMAT_WEIGHT=0.3
 TENSOR_PARALLEL_SIZE=1
+FORMAT_PROMPT=/home/aiscuser/customVeRL/examples/format_prompt/scorers_format.json
 
-CUDA_VISIBLE_DEVICES=0,1 python3 -m customVeRL.verl.trainer.main \
+python3 -m customVeRL.verl.trainer.main \
     config=/home/aiscuser/customVeRL/examples/config.yaml \
     data.train_files=/home/aiscuser/scorers_data \
-    data.val_files=hiyouga/geometry3k@test \
+    data.val_files=/home/aiscuser/scorers_test \
+    data.image_key=image \
+    data.format_prompt=${FORMAT_PROMPT} \
     worker.actor.model.model_path=${MODEL_PATH} \
     trainer.experiment_name=qwenrs_vl_2b_grpo_geogrpo \
     trainer.project_name=VeRL \

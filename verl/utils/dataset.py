@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import math
 import os
 from collections import defaultdict
@@ -127,8 +128,18 @@ class RLHFDataset(Dataset, ImageProcessMixin):
 
         self.format_prompt = None
         if format_prompt:
-            with open(format_prompt, encoding="utf-8") as f:
-                self.format_prompt = f.read()
+            # if it is a jinja template, we need to load it
+            if format_prompt.endswith(".jinja"):
+                with open(format_prompt, encoding="utf-8") as f:
+                    self.format_prompt = f.read()
+                    self.is_jinja_template = True
+            elif format_prompt.endswith(".json"):
+                self.format_prompt = json.load(open(format_prompt))["chat_template"]
+                self.is_jinja_template = False
+            else:
+                raise NotImplementedError(
+                    f"Format prompt {format_prompt} is not supported. Only jinja and json are supported."
+                )
 
         if self.filter_overlong_prompts:
             self.dataset = self.dataset.filter(
@@ -137,7 +148,7 @@ class RLHFDataset(Dataset, ImageProcessMixin):
 
     def _build_messages(self, example: Dict[str, Any]) -> List[Dict[str, Any]]:
         prompt_str: str = example[self.prompt_key]
-        if self.format_prompt:
+        if self.format_prompt and self.is_jinja_template:
             format_prompt = Template(self.format_prompt.strip())
             prompt_str = format_prompt.render(content=prompt_str)
 
@@ -160,14 +171,27 @@ class RLHFDataset(Dataset, ImageProcessMixin):
         processing_class = (
             self.processor if self.processor is not None else self.tokenizer
         )
-        return (
-            len(
-                processing_class.apply_chat_template(
-                    messages, add_generation_prompt=True
+
+        if self.format_prompt and not self.is_jinja_template:
+            return (
+                len(
+                    processing_class.apply_chat_template(
+                        messages,
+                        add_generation_prompt=True,
+                        chat_template=self.format_prompt,
+                    )
                 )
+                <= self.max_prompt_length
             )
-            <= self.max_prompt_length
-        )
+        else:
+            return (
+                len(
+                    processing_class.apply_chat_template(
+                        messages, add_generation_prompt=True
+                    )
+                )
+                <= self.max_prompt_length
+            )
 
     def __len__(self):
         return len(self.dataset)
@@ -177,9 +201,17 @@ class RLHFDataset(Dataset, ImageProcessMixin):
         messages = self._build_messages(example)
 
         if self.image_key in example:
-            prompt = self.processor.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False
-            )
+            if self.format_prompt and not self.is_jinja_template:
+                prompt = self.processor.apply_chat_template(
+                    messages,
+                    add_generation_prompt=True,
+                    chat_template=self.format_prompt,
+                    tokenize=False,
+                )
+            else:
+                prompt = self.processor.apply_chat_template(
+                    messages, add_generation_prompt=True, tokenize=False
+                )
 
             images = example.get(self.image_key)
             if not isinstance(images, list):
@@ -194,9 +226,18 @@ class RLHFDataset(Dataset, ImageProcessMixin):
             example["multi_modal_data"] = {"image": images}
             example["multi_modal_inputs"] = dict(model_inputs)
         else:
-            prompt = self.tokenizer.apply_chat_template(
-                messages, add_generation_prompt=True, tokenize=False
-            )
+            if self.format_prompt and not self.is_jinja_template:
+                prompt = self.processor.apply_chat_template(
+                    messages,
+                    add_generation_prompt=True,
+                    chat_template=self.format_prompt,
+                    tokenize=False,
+                )
+            else:
+                prompt = self.tokenizer.apply_chat_template(
+                    messages, add_generation_prompt=True, tokenize=False
+                )
+
             model_inputs = self.tokenizer(
                 [prompt], add_special_tokens=False, return_tensors="pt"
             )
